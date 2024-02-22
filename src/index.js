@@ -1,14 +1,3 @@
-import showNewTaskScreen from './newTaskScreen.js';
+import showProjectView from './newTaskScreen.js';
 
-showNewTaskScreen();
-
-
-
-
-
-
-
-// change title
-// place it into a project
-// edit todos
-// delete todo
+showProjectView();

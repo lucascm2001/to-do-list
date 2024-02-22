@@ -1,11 +1,16 @@
-import { Task, Project } from './taskLogic.js';
-import { projects, updateProjectView } from './projects.js'
+import { Task } from './taskLogic.js';
+import { projects, updateProjectView, newProjectField } from './projects.js'
+import { onPageLoad, updateStorage } from './localStorage.js';
+// can't click new task multiple times if already open
+// do the localStorage
+// Time to fix the UI!!
+// consolidate buttons into one thingy
+// order tasks by date and priority (star versus no star)
 
-// create a common viewport. use it to view current project
 
+export default function showProjectView() {
 
-
-export default function showNewTaskScreen() {
+    onPageLoad();
 
     updateProjectView();
 
@@ -14,8 +19,10 @@ export default function showNewTaskScreen() {
 
 }
 
+// maybe have an updateviewport function whenever anything happens
+
 // display clicked project to the viewport
-function projectOnViewport(project) {
+export function projectOnViewport(project) {
 
 
     const mainViewport = document.querySelector('#main-viewport');
@@ -29,7 +36,6 @@ function projectOnViewport(project) {
 
     for (let task of project.listTasks) {
         const taskDiv = createTaskForScreen(task);
-        console.log(taskDiv);
         tasksInProject.appendChild(taskDiv);
     }
 
@@ -43,18 +49,22 @@ function projectOnViewport(project) {
 
         const taskQuestions = createInputField();
         newTaskButton.insertAdjacentElement('beforebegin', taskQuestions);
+        document.querySelector('#title').focus();
     });
 
     mainViewport.appendChild(projectHeader);
     mainViewport.appendChild(tasksInProject);
     mainViewport.appendChild(newTaskButton);
 
-
+    updateStorage();
 }
 
-function createTaskForScreen(task) {
 
-    const wrapper = document.createElement('div');
+function createTaskForScreen(task, wrapper = null) {
+
+    if (wrapper == null) {
+        wrapper = document.createElement('div');
+    }
 
     const p = document.createElement('p');
     p.textContent = `title: ${task.title}
@@ -64,68 +74,26 @@ function createTaskForScreen(task) {
     const editButton = document.createElement('button');
     editButton.textContent = 'Edit Task';
 
-    editButton.addEventListener('click', () => { 
-        // grab div around it
-        createInputField(task, wrapper);  //wrapper
-
-        // need to reference the original div for the task
+    editButton.addEventListener('click', () => {
+        const taskInputField = createInputField(task, wrapper);
+        wrapper.insertAdjacentElement('beforebegin', taskInputField);
+        wrapper.textContent = '';
     });
+
+    const deleteButton = document.createElement('button');
+    deleteButton.textContent = 'Delete';
+    deleteButton.addEventListener('click', () => {
+        task.project.listTasks = task.project.listTasks.filter((t) => task !== t);
+        projectOnViewport(task.project);
+    })
 
     wrapper.appendChild(p);
     wrapper.appendChild(editButton);
+    wrapper.appendChild(deleteButton);
 
     return wrapper;
 }
 
-function newProjectField() {
-    // ask for name of project.
-
-    // add any existing tasks to project
-
-    const wrapper = document.querySelector('.new-project-questions');
-
-    const form = document.createElement('form');
-    form.setAttribute('action', '');
-    form.setAttribute('method', 'get');
-    form.setAttribute('id', 'project-form');
-
-    const titleLabel = document.createElement('label');
-    titleLabel.setAttribute('for', 'title');
-    titleLabel.textContent = 'Title';
-    const titleInput = document.createElement('input');
-    titleInput.setAttribute('type', 'text');
-    titleInput.setAttribute('name', 'title');
-    titleInput.setAttribute('id', 'title');
-
-    const submitButton = document.createElement('button');
-    submitButton.setAttribute('id', 'create-new-project');
-    submitButton.textContent = 'Create New Project';
-
-    submitButton.addEventListener('click', (event) => {
-
-        event.preventDefault();
-
-        const title = document.querySelector('#title').value;
-        const newProject = new Project(title);
-        projects.push(newProject);
-        updateProjectView();
-
-    
-        // clear this form, submit this to the logic and the screen
-
-        // clearing input field
-        wrapper.textContent = '';
-    });
-
-    form.appendChild(titleLabel);
-    form.appendChild(titleInput);
-    form.appendChild(submitButton);
-
-    wrapper.appendChild(form);
-
-
-
-}
 
 
 // make it work for editing too
@@ -163,22 +131,6 @@ function createInputField(task = null, outerDiv = null) {
     dateInput.setAttribute('name', 'date');
     dateInput.setAttribute('id', 'date');
 
-    const projectLabel = document.createElement('label');
-    projectLabel.setAttribute('for', 'projects');
-    projectLabel.textContent = 'Project';
-
-    const projectInput = document.createElement('select');
-    projectInput.setAttribute('name', 'projects');
-    projectInput.setAttribute('id', 'projects');
-
-    for (let project of projects) {
-        const option = document.createElement('option');
-        option.setAttribute('value', project.title);
-        option.textContent = `${project.title}`;
-        projectInput.appendChild(option);
-    }
-    
-
     const submitButton = document.createElement('button');
     submitButton.setAttribute('id', 'create-new-task');
     submitButton.textContent = 'Create New Task';
@@ -188,7 +140,7 @@ function createInputField(task = null, outerDiv = null) {
         titleInput.value = task.title;
         descInput.value = task.description;
         dateInput.value = task.dueDate;
-        projectInput.value = task.project.title;
+        //projectInput.value = task.project.title;
 
         submitButton.textContent = 'Edit Task';
     }
@@ -200,7 +152,7 @@ function createInputField(task = null, outerDiv = null) {
         const title = document.querySelector('#title').value;
         const desc = document.querySelector('#desc').value; 
         const date = document.querySelector('#date').value;
-        const project = document.querySelector('#projects').value;
+        const project = document.querySelector('h3').textContent;
 
         const projectObject = projects.find((proj) => proj.title == project);
 
@@ -208,8 +160,6 @@ function createInputField(task = null, outerDiv = null) {
         if (task == null) {
             const newTask = new Task(title, desc, date, projectObject);
             projectObject.listTasks.push(newTask);
-            //newTask.addToProject(project);
-            // FIX THIS LINE RIGHT HERE, TASK TO COME ABOVE BUTTON
             projectOnViewport(projectObject);
 
         } else {
@@ -217,10 +167,24 @@ function createInputField(task = null, outerDiv = null) {
             task.editDescription(desc);
             task.editDueDate(date);
             //task.editProject(projectObject);
-            editTaskToScreen(task, outerDiv);
+            createTaskForScreen(task, outerDiv);
         }
 
+        updateStorage();
+
         wrapper.textContent = '';
+    });
+
+    const cancelButton = document.createElement('button');
+    cancelButton.setAttribute('id', 'cancel-project-field');
+    cancelButton.textContent = 'Cancel';
+
+    cancelButton.addEventListener('click', (event) => {
+        event.preventDefault();
+
+        wrapper.textContent = '';
+        wrapper.remove();
+        if (task !== null) { createTaskForScreen(task, outerDiv); }
     });
 
     form.appendChild(titleLabel);
@@ -229,18 +193,10 @@ function createInputField(task = null, outerDiv = null) {
     form.appendChild(descInput);
     form.appendChild(dateLabel);
     form.appendChild(dateInput);
-    form.appendChild(projectLabel);
-    form.appendChild(projectInput);
     form.appendChild(submitButton);
+    form.appendChild(cancelButton);
 
     wrapper.appendChild(form);
 
     return wrapper;
-}
-
-function editTaskToScreen(task, wrapper) {
-    
-    wrapper.children[0].textContent = `title: ${task.title}
-    desc:  ${task.description}\n
-    Due date: ${task.dueDate}\n`;
 }
